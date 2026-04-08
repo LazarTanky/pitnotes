@@ -139,7 +139,8 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   </div>
 
   <div id="page-photos" class="page">
-    <div class="section-head"><h2>Photos</h2></div>
+    <div class="section-head"><h2>Photos</h2><button class="btn sm" onclick="openPhotoUpload()">+ Add</button></div>
+    <div class="filter-bar" id="photo-filter-bar"></div>
     <div id="photos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;"></div>
   </div>
 
@@ -292,7 +293,35 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 </div>
 </div>
 
-<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+<!-- STANDALONE PHOTO UPLOAD MODAL -->
+<div class="modal-overlay" id="photo-upload-modal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-head"><h3>Add Photos</h3><button class="icon-btn" onclick="closeModal('photo-upload-modal')">✕</button></div>
+  <div class="field"><label>Attach to Car (optional)</label><select id="pu-car"><option value="">— No car —</option></select></div>
+  <div class="field"><label>Caption / Note</label><input type="text" id="pu-caption" placeholder="e.g. Race night setup, before adjustments…"></div>
+  <div class="photo-upload-zone" onclick="document.getElementById('pu-input').click()">
+    <div style="font-size:26px;margin-bottom:5px;">📷</div>
+    <p style="font-size:12px;color:var(--muted);">Tap to add photos from camera or library</p>
+  </div>
+  <input type="file" id="pu-input" accept="image/*" multiple style="display:none;" onchange="handleStandalonePhotos(event)">
+  <div class="preview-grid" id="pu-preview"></div>
+  <div style="margin-top:20px;"><button class="btn" onclick="saveStandalonePhotos()">💾 Save Photos</button></div>
+</div>
+</div>
+
+<!-- CAR PHOTOS MODAL -->
+<div class="modal-overlay" id="car-photos-modal">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-head"><h3 id="car-photos-title">Car Photos</h3><button class="icon-btn" onclick="closeModal('car-photos-modal')">✕</button></div>
+  <div id="car-photos-body"></div>
+  <div style="margin-top:14px;"><button class="btn ghost sm" onclick="addCarPhoto()">+ Add Photo</button></div>
+  <input type="file" id="car-photo-input" accept="image/*" multiple style="display:none;" onchange="handleCarPhotoAdd(event)">
+</div>
+</div>
+
+
   <button class="lightbox-close">✕</button>
   <img id="lightbox-img" src="" alt="">
 </div>
@@ -514,7 +543,7 @@ function renderCars(){
   cars.forEach(c=>{
     const cnt=sessions.filter(s=>s.car_id===c.id).length;
     const div=document.createElement('div');div.className='car-card';
-    div.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;"><div class="car-num">${c.num}</div><div class="car-info"><h3>${c.name||c.num}</h3><p>${c.cls||''}${cnt?' · '+cnt+' session'+(cnt!==1?'s':''):''}</p></div></div><div class="car-actions"><button class="btn ghost sm" onclick="setActiveCar('${c.id}')">Filter</button><button class="btn secondary sm" onclick="openCarModal('${c.id}')">Edit</button><button class="btn danger sm" onclick="deleteCar('${c.id}')">✕</button></div>`;
+    div.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;"><div class="car-num">${c.num}</div><div class="car-info"><h3>${c.name||c.num}</h3><p>${c.cls||''}${cnt?' · '+cnt+' session'+(cnt!==1?'s':''):''}</p></div></div><div class="car-actions"><button class="btn ghost sm" onclick="setActiveCar('${c.id}')">Filter</button><button class="btn ghost sm" onclick="openCarPhotos('${c.id}')">📷</button><button class="btn secondary sm" onclick="openCarModal('${c.id}')">Edit</button><button class="btn danger sm" onclick="deleteCar('${c.id}')">✕</button></div>`;
     list.appendChild(div);
   });
 }
@@ -732,14 +761,129 @@ async function deleteSession(){
 }
 
 // ── PHOTOS PAGE ──
-function renderPhotos(){
-  const g=document.getElementById('photos-grid');g.innerHTML='';
-  const all=sessions.flatMap(s=>(s.photos||[]).map(p=>p));
-  if(!all.length){g.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="icon">📷</div><p>No photos yet.</p></div>`;return;}
-  all.forEach(src=>{const w=document.createElement('div');w.style='aspect-ratio:1;border-radius:6px;overflow:hidden;cursor:pointer;';w.innerHTML=`<img src="${src}" style="width:100%;height:100%;object-fit:cover;" onclick="openLightbox('${src}')">`;g.appendChild(w);});
+// ── STANDALONE PHOTOS ──
+let standalonePhotos = [];
+let currentCarPhotosId = null;
+
+function openPhotoUpload() {
+  standalonePhotos = [];
+  document.getElementById('pu-preview').innerHTML = '';
+  document.getElementById('pu-caption').value = '';
+  document.getElementById('pu-car').value = '';
+  // populate car dropdown
+  const sel = document.getElementById('pu-car');
+  sel.innerHTML = '<option value="">— No car —</option>' + cars.map(c => `<option value="${c.id}">#${c.num} ${c.name||''}</option>`).join('');
+  openModal('photo-upload-modal');
 }
 
-// ── STATS ──
+function handleStandalonePhotos(e) {
+  Array.from(e.target.files).forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => { standalonePhotos.push(ev.target.result); renderStandalonePreview(); };
+    r.readAsDataURL(f);
+  });
+  e.target.value = '';
+}
+
+function renderStandalonePreview() {
+  const g = document.getElementById('pu-preview'); g.innerHTML = '';
+  standalonePhotos.forEach((s, i) => {
+    const w = document.createElement('div'); w.className = 'preview-wrap';
+    w.innerHTML = `<img src="${s}"><button class="preview-remove" onclick="standalonePhotos.splice(${i},1);renderStandalonePreview()">✕</button>`;
+    g.appendChild(w);
+  });
+}
+
+async function saveStandalonePhotos() {
+  if (!standalonePhotos.length) { showToast('Add at least one photo!'); return; }
+  const carId = document.getElementById('pu-car').value || null;
+  const caption = document.getElementById('pu-caption').value.trim();
+  const payload = {
+    user_id: CU.id, car_id: carId,
+    track: caption || 'Standalone Photos',
+    date: new Date().toISOString().split('T')[0],
+    photos: standalonePhotos,
+    corners: {}, race_events: [], notes: caption,
+  };
+  try {
+    const res = await sbInsert('sessions', payload);
+    const inserted = Array.isArray(res) ? res[0] : res;
+    sessions.unshift(inserted);
+    closeModal('photo-upload-modal');
+    renderPhotos(); renderStats();
+    showToast('Photos saved! 📷');
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+// ── CAR PHOTOS ──
+function openCarPhotos(carId) {
+  currentCarPhotosId = carId;
+  const car = cars.find(c => c.id === carId);
+  document.getElementById('car-photos-title').textContent = '#' + car.num + ' Photos';
+  renderCarPhotosBody();
+  openModal('car-photos-modal');
+}
+
+function renderCarPhotosBody() {
+  const carSessions = sessions.filter(s => s.car_id === currentCarPhotosId);
+  const allPhotos = carSessions.flatMap(s => (s.photos || []).map(p => ({ src: p, track: s.track, date: s.date })));
+  const body = document.getElementById('car-photos-body');
+  if (!allPhotos.length) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>No photos for this car yet.</p></div>';
+    return;
+  }
+  body.innerHTML = `<div class="preview-grid">${allPhotos.map(p => `<div class="preview-wrap" onclick="openLightbox('${p.src}')"><img src="${p.src}"></div>`).join('')}</div>`;
+}
+
+function addCarPhoto() {
+  const input = document.getElementById('car-photo-input');
+  // pre-set the car in photo upload modal
+  standalonePhotos = [];
+  document.getElementById('pu-preview').innerHTML = '';
+  document.getElementById('pu-caption').value = '';
+  const sel = document.getElementById('pu-car');
+  sel.innerHTML = '<option value="">— No car —</option>' + cars.map(c => `<option value="${c.id}">#${c.num} ${c.name||''}</option>`).join('');
+  sel.value = currentCarPhotosId || '';
+  closeModal('car-photos-modal');
+  openModal('photo-upload-modal');
+}
+
+function handleCarPhotoAdd(e) {
+  handleStandalonePhotos(e);
+}
+
+function renderPhotos(){
+  const g = document.getElementById('photos-grid'); g.innerHTML = '';
+
+  // build filter bar
+  const fb = document.getElementById('photo-filter-bar'); fb.innerHTML = '';
+  let photoFilter = g.dataset.filter || 'all';
+  const allChip = document.createElement('div');
+  allChip.className = 'filter-chip' + (photoFilter === 'all' ? ' active' : '');
+  allChip.textContent = 'All'; allChip.onclick = () => { g.dataset.filter='all'; renderPhotos(); }; fb.appendChild(allChip);
+  const standaloneChip = document.createElement('div');
+  standaloneChip.className = 'filter-chip' + (photoFilter === 'standalone' ? ' active' : '');
+  standaloneChip.textContent = 'Standalone'; standaloneChip.onclick = () => { g.dataset.filter='standalone'; renderPhotos(); }; fb.appendChild(standaloneChip);
+  cars.forEach(c => {
+    const ch = document.createElement('div');
+    ch.className = 'filter-chip' + (photoFilter === c.id ? ' active' : '');
+    ch.textContent = '#' + c.num; ch.onclick = () => { g.dataset.filter = c.id; renderPhotos(); }; fb.appendChild(ch);
+  });
+
+  let filtered = sessions;
+  if (photoFilter === 'standalone') filtered = sessions.filter(s => !s.car_id);
+  else if (photoFilter !== 'all') filtered = sessions.filter(s => s.car_id === photoFilter);
+
+  const all = filtered.flatMap(s => (s.photos || []).map(p => p));
+  if (!all.length) { g.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">📷</div><p>No photos yet.<br>Tap <b>+ Add</b> to upload.</p></div>`; return; }
+  all.forEach(src => {
+    const w = document.createElement('div'); w.style = 'aspect-ratio:1;border-radius:6px;overflow:hidden;cursor:pointer;';
+    w.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;" onclick="openLightbox('${src}')">`;
+    g.appendChild(w);
+  });
+}
+
+// ── MODAL / LIGHTBOX ──
 function renderStats(){
   const total=sessions.length;
   const photos=sessions.reduce((n,s)=>n+(s.photos?s.photos.length:0),0);
