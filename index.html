@@ -10,7 +10,7 @@
 <title>PitNotes — Dirt Track Setup Logger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#0d0d0d;--surface:#161616;--card:#1c1c1c;--border:#2a2a2a;--accent:#f07000;--accent2:#ffaa00;--danger:#e03030;--text:#e8e2d8;--muted:#7a7268;--success:#3dbe6a;--fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -303,8 +303,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 // ── SUPABASE INIT ──
 const SUPA_URL = 'https://uipngbwdcojorjzyxjmg.supabase.co';
 const SUPA_KEY = 'sb_publishable_L6NUbZRyjkL-TKpiSSxUzA_RErMvX4t';
-const { createClient } = supabase;
-const db = createClient(SUPA_URL, SUPA_KEY, {
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
 
@@ -349,6 +348,10 @@ async function doRegister() {
 async function doLogout() {
   await db.auth.signOut();
 }
+
+// ── STARTUP: show login immediately, auth listener will redirect if already logged in ──
+document.getElementById('login-screen').classList.add('active');
+showLogin();
 
 // ── AUTH STATE LISTENER ──
 db.auth.onAuthStateChange(async (event, session) => {
