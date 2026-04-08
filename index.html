@@ -365,17 +365,16 @@ function loadTokens() {
 let cars = [], sessions = [], ACI = null, editSid = null, detailId = null, editCid = null, pendingPhotos = [], reCount = 0;
 
 // ── STARTUP ──
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   showLogin();
+  // If we have a saved token, try to use it but don't block the UI
   if (loadTokens()) {
-    // Try refreshing the session silently
-    try {
-      const res = await sbAuth('/token?grant_type=refresh_token', { refresh_token: REFRESH_TOKEN });
-      saveTokens(res.access_token, res.refresh_token, res.user);
-      loginSuccess();
-    } catch(e) {
-      clearTokens();
-    }
+    sbAuth('/token?grant_type=refresh_token', { refresh_token: REFRESH_TOKEN })
+      .then(res => {
+        saveTokens(res.access_token, res.refresh_token, res.user);
+        loginSuccess();
+      })
+      .catch(() => clearTokens());
   }
 });
 
@@ -442,12 +441,22 @@ function showPage(n) {
 // ── LOAD ALL DATA ──
 async function loadAll() {
   try {
-    const [c, s] = await Promise.all([sbSelect('cars'), sbSelect('sessions')]);
+    const [c, s] = await Promise.all([
+      fetch(`${SUPA_URL}/rest/v1/cars?select=*&order=created_at.desc`, {
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + ACCESS_TOKEN }
+      }).then(r => r.json()),
+      fetch(`${SUPA_URL}/rest/v1/sessions?select=*&order=created_at.desc`, {
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + ACCESS_TOKEN }
+      }).then(r => r.json()),
+    ]);
+    console.log('cars:', c, 'sessions:', s);
     cars = Array.isArray(c) ? c : [];
     sessions = Array.isArray(s) ? s : [];
+    if (c.code || s.code) throw new Error((c.message || s.message || 'DB error'));
   } catch(e) {
+    console.error('loadAll error:', e);
     cars = []; sessions = [];
-    showToast('Could not load data: ' + e.message);
+    showToast('Load error: ' + e.message);
   }
   renderCars(); renderSessions(); renderPhotos(); renderStats(); populateCarDD();
 }
