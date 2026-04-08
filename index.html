@@ -98,7 +98,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 <body>
 
 <!-- LOADING -->
-<div class="loading-overlay" id="loading">
+<div class="loading-overlay" id="loading" style="display:none;">
   <div class="spinner"></div>
   <p>Loading…</p>
 </div>
@@ -333,7 +333,7 @@ let reCount = 0;
 function loading(show, msg='Saving…') {
   const el = document.getElementById('loading');
   el.querySelector('p').textContent = msg;
-  el.classList.toggle('show', show);
+  el.style.display = show ? 'flex' : 'none';
 }
 
 // ── AUTH ──
@@ -391,12 +391,8 @@ db.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
-// Fallback: if auth state never fires within 5s, stop loading
-setTimeout(() => {
-  if (document.getElementById('loading').classList.contains('show')) {
-    loading(false);
-  }
-}, 5000);
+// Fallback: safety net in case loading gets stuck
+setTimeout(() => { loading(false); }, 6000);
 
 // ── NAV ──
 function showPage(n) {
