@@ -89,19 +89,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}.empty-state .icon{font-size:48px;margin-bottom:12px;}.empty-state p{font-size:13px;line-height:1.6;}
 .toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--success);color:#000;font-family:var(--fh);font-size:14px;font-weight:700;letter-spacing:1px;padding:8px 20px;border-radius:50px;z-index:400;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}.toast.show{opacity:1;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:12px;}.loading-overlay.show{display:flex;}
-.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-.loading-overlay p{color:var(--text);font-family:var(--fh);font-size:14px;letter-spacing:2px;text-transform:uppercase;}
 </style>
 </head>
 <body>
-
-<!-- LOADING -->
-<div class="loading-overlay" id="loading" style="display:none;">
-  <div class="spinner"></div>
-  <p>Loading…</p>
-</div>
 
 <!-- LOGIN -->
 <div id="login-screen" class="screen active">
@@ -329,13 +319,6 @@ let editCid = null;
 let pendingPhotos = [];
 let reCount = 0;
 
-// ── LOADING ──
-function loading(show, msg='Saving…') {
-  const el = document.getElementById('loading');
-  el.querySelector('p').textContent = msg;
-  el.style.display = show ? 'flex' : 'none';
-}
-
 // ── AUTH ──
 function showLogin() { document.getElementById('login-form').style.display=''; document.getElementById('register-form').style.display='none'; }
 function showRegister() { document.getElementById('login-form').style.display='none'; document.getElementById('register-form').style.display=''; }
@@ -345,9 +328,7 @@ async function doLogin() {
   const pass = document.getElementById('login-pass').value;
   const err = document.getElementById('login-error');
   if (!email || !pass) { err.textContent='Fill in all fields.'; err.classList.add('show'); return; }
-  loading(true, 'Signing in…');
   const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
-  loading(false);
   if (error) { err.textContent = error.message; err.classList.add('show'); return; }
   err.classList.remove('show');
 }
@@ -358,9 +339,7 @@ async function doRegister() {
   const err = document.getElementById('reg-error');
   if (!email || !pass) { err.textContent='All fields required.'; err.classList.add('show'); return; }
   if (pass.length < 6) { err.textContent='Password min 6 chars.'; err.classList.add('show'); return; }
-  loading(true, 'Creating account…');
   const { data, error } = await db.auth.signUp({ email, password: pass });
-  loading(false);
   if (error) { err.textContent = error.message; err.classList.add('show'); return; }
   err.classList.remove('show');
   showToast('Account created! Check your email to confirm.');
@@ -386,13 +365,10 @@ db.auth.onAuthStateChange(async (event, session) => {
     CU = null;
     document.getElementById('app-screen').classList.remove('active');
     document.getElementById('login-screen').classList.add('active');
-    loading(false);
-    showLogin();
+      showLogin();
   }
 });
 
-// Fallback: safety net in case loading gets stuck
-setTimeout(() => { loading(false); }, 6000);
 
 // ── NAV ──
 function showPage(n) {
@@ -404,7 +380,6 @@ function showPage(n) {
 
 // ── LOAD ALL DATA ──
 async function loadAll() {
-  loading(true, 'Loading…');
   try {
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000));
     const fetchAll = Promise.all([
@@ -426,7 +401,6 @@ async function loadAll() {
       showToast('Error: ' + e.message);
     }
   }
-  loading(false);
   renderCars(); renderSessions(); renderPhotos(); renderStats(); populateCarDD();
 }
 
@@ -452,14 +426,12 @@ async function saveCar() {
     notes: document.getElementById('cm-notes').value.trim(),
     user_id: CU.id,
   };
-  loading(true, 'Saving car…');
   let res;
   if (editCid) {
     res = await db.from('cars').update(payload).eq('id', editCid).select().single();
   } else {
     res = await db.from('cars').insert(payload).select().single();
   }
-  loading(false);
   if (res.error) { showToast('Error: ' + res.error.message); return; }
   if (editCid) cars = cars.map(c => c.id === editCid ? res.data : c);
   else cars.unshift(res.data);
@@ -470,9 +442,7 @@ async function saveCar() {
 
 async function deleteCar(id) {
   if (!confirm('Delete this car?')) return;
-  loading(true, 'Deleting…');
   await db.from('cars').delete().eq('id', id);
-  loading(false);
   cars = cars.filter(c => c.id !== id);
   if (ACI === id) { ACI = null; updateBadge(); }
   renderCars(); populateCarDD(); renderSessions();
@@ -616,14 +586,12 @@ async function saveSession() {
     notes: gv('ns-notes'), photos: pendingPhotos,
   };
 
-  loading(true, 'Saving session…');
   let res;
   if (editSid) {
     res = await db.from('sessions').update(payload).eq('id', editSid).select().single();
   } else {
     res = await db.from('sessions').insert(payload).select().single();
   }
-  loading(false);
   if (res.error) { showToast('Error: ' + res.error.message); return; }
   if (editSid) sessions = sessions.map(s => s.id === editSid ? res.data : s);
   else sessions.unshift(res.data);
@@ -720,9 +688,7 @@ function editSession() {
 
 async function deleteSession() {
   if (!detailId || !confirm('Delete this session?')) return;
-  loading(true, 'Deleting…');
   await db.from('sessions').delete().eq('id', detailId);
-  loading(false);
   sessions = sessions.filter(s => s.id !== detailId);
   closeModal('detail-modal'); renderSessions(); renderPhotos(); renderStats();
   showToast('Session deleted.');
