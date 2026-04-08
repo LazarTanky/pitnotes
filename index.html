@@ -314,7 +314,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 const SUPA_URL = 'https://uipngbwdcojorjzyxjmg.supabase.co';
 const SUPA_KEY = 'sb_publishable_L6NUbZRyjkL-TKpiSSxUzA_RErMvX4t';
 const { createClient } = supabase;
-const db = createClient(SUPA_URL, SUPA_KEY);
+const db = createClient(SUPA_URL, SUPA_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
 
 // ── STATE ──
 let CU = null; // current user
@@ -384,9 +386,17 @@ db.auth.onAuthStateChange(async (event, session) => {
     CU = null;
     document.getElementById('app-screen').classList.remove('active');
     document.getElementById('login-screen').classList.add('active');
+    loading(false);
     showLogin();
   }
 });
+
+// Fallback: if auth state never fires within 5s, stop loading
+setTimeout(() => {
+  if (document.getElementById('loading').classList.contains('show')) {
+    loading(false);
+  }
+}, 5000);
 
 // ── NAV ──
 function showPage(n) {
@@ -399,18 +409,29 @@ function showPage(n) {
 // ── LOAD ALL DATA ──
 async function loadAll() {
   loading(true, 'Loading…');
-  const [carsRes, sessRes] = await Promise.all([
-    db.from('cars').select('*').order('created_at', { ascending: false }),
-    db.from('sessions').select('*').order('created_at', { ascending: false }),
-  ]);
-  cars = carsRes.data || [];
-  sessions = sessRes.data || [];
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000));
+    const fetchAll = Promise.all([
+      db.from('cars').select('*').order('created_at', { ascending: false }),
+      db.from('sessions').select('*').order('created_at', { ascending: false }),
+    ]);
+    const [carsRes, sessRes] = await Promise.race([fetchAll, timeout]);
+    if (carsRes.error) throw new Error(carsRes.error.message);
+    if (sessRes.error) throw new Error(sessRes.error.message);
+    cars = carsRes.data || [];
+    sessions = sessRes.data || [];
+  } catch(e) {
+    cars = []; sessions = [];
+    if (e.message === 'timeout') {
+      showToast('Connection timed out. Check your internet.');
+    } else if (e.message.includes('does not exist') || e.message.includes('relation')) {
+      showToast('⚠️ Database not set up yet — run setup.sql first!');
+    } else {
+      showToast('Error: ' + e.message);
+    }
+  }
   loading(false);
-  renderCars();
-  renderSessions();
-  renderPhotos();
-  renderStats();
-  populateCarDD();
+  renderCars(); renderSessions(); renderPhotos(); renderStats(); populateCarDD();
 }
 
 // ── CARS ──
