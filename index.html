@@ -575,11 +575,11 @@ function addRaceEvent(d=null){
     <div style="margin-bottom:8px;"><div class="re-lbl">Track Condition</div><input class="re-inp" id="re-cond-${idx}" placeholder="Slick / Tacky / Cushion…" value="${d?d.cond||'':''}"></div>
     <div class="re-lbl" style="margin-bottom:5px;">Tires</div>
     <table class="tire-tbl">
-      <thead><tr><th></th><th>RR</th><th>LR</th><th>RF</th><th>LF</th></tr></thead>
+      <thead><tr><th></th><th>LF</th><th>RF</th><th>LR</th><th>RR</th></tr></thead>
       <tbody>
         ${['Pressure','Turns','Bar Size','Compression','Rebound'].map(row=>`<tr>
           <td>${row}</td>
-          ${['rr','lr','rf','lf'].map(cor=>`<td><input id="re-${row.toLowerCase().replace(' ','-')}-${cor}-${idx}" value="${d&&d.tires&&d.tires[row.toLowerCase().replace(' ','-')]?d.tires[row.toLowerCase().replace(' ','-')][cor]||'':''}"></td>`).join('')}
+          ${['lf','rf','lr','rr'].map(cor=>`<td><input id="re-${row.toLowerCase().replace(' ','-')}-${cor}-${idx}" value="${d&&d.tires&&d.tires[row.toLowerCase().replace(' ','-')]?d.tires[row.toLowerCase().replace(' ','-')][cor]||'':''}"></td>`).join('')}
         </tr>`).join('')}
         <tr>
           <td>Stagger</td>
@@ -601,7 +601,7 @@ function collectRE(){
     const i=m[1];
     const g=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
     const rows=['pressure','turns','bar-size','compression','rebound'];
-    const tires={};rows.forEach(r=>{tires[r]={};['rr','lr','rf','lf'].forEach(c=>{tires[r][c]=g('re-'+r+'-'+c+'-'+i);});});
+    const tires={};rows.forEach(r=>{tires[r]={};['lf','rf','lr','rr'].forEach(c=>{tires[r][c]=g('re-'+r+'-'+c+'-'+i);});});
     tires.stagger={rr:g('re-stagger-rr-'+i)};
     events.push({start:g('re-start-'+i),finish:g('re-finish-'+i),numCars:g('re-cars-'+i),laps:g('re-laps-'+i),cond:g('re-cond-'+i),note:g('re-note-'+i),tires});
   });
@@ -713,9 +713,9 @@ function openDetail(id){
   };
   const cornersH=[cdet('lf','LF'),cdet('rf','RF'),cdet('lr','LR'),cdet('rr','RR')].filter(Boolean).join('');
   const evH=(s.race_events&&s.race_events.length)?s.race_events.map(e=>{
-    const trows=['pressure','turns','bar-size','compression','rebound'].filter(r=>['rr','lr','rf','lf'].some(c=>e.tires&&e.tires[r]&&e.tires[r][c]));
+    const trows=['pressure','turns','bar-size','compression','rebound'].filter(r=>['lf','rf','lr','rr'].some(c=>e.tires&&e.tires[r]&&e.tires[r][c]));
     const staggerRR=e.tires&&e.tires.stagger&&e.tires.stagger.rr;
-    const ttbl=(trows.length||staggerRR)?`<table class="tire-tbl" style="margin-top:8px;"><thead><tr><th></th><th>RR</th><th>LR</th><th>RF</th><th>LF</th></tr></thead><tbody>${trows.map(r=>`<tr><td>${r}</td>${['rr','lr','rf','lf'].map(c=>`<td style="font-size:12px;text-align:center;">${(e.tires[r]&&e.tires[r][c])||'—'}</td>`).join('')}</tr>`).join('')}${staggerRR?`<tr><td>Stagger</td><td style="font-size:12px;text-align:center;">${e.tires.stagger.rr}</td><td>—</td><td>—</td><td>—</td></tr>`:''}</tbody></table>`:'';
+    const ttbl=(trows.length||staggerRR)?`<table class="tire-tbl" style="margin-top:8px;"><thead><tr><th></th><th>LF</th><th>RF</th><th>LR</th><th>RR</th></tr></thead><tbody>${trows.map(r=>`<tr><td>${r}</td>${['lf','rf','lr','rr'].map(c=>`<td style="font-size:12px;text-align:center;">${(e.tires[r]&&e.tires[r][c])||'—'}</td>`).join('')}</tr>`).join('')}${staggerRR?`<tr><td>Stagger</td><td>—</td><td>—</td><td>—</td><td style="font-size:12px;text-align:center;">${e.tires.stagger.rr}</td></tr>`:''}</tbody></table>`:'';
     return`<div class="re-block">${rows([['Start',e.start],['Finish',e.finish],['# Cars',e.numCars],['Laps',e.laps],['Track Condition',e.cond]])}${ttbl}${e.note?`<div style="margin-top:7px;font-size:13px;color:var(--muted);">${e.note}</div>`:''}</div>`;
   }).join(''):'';
   const photosH=(s.photos&&s.photos.length)?`<div class="detail-section"><h4>📷 Photos</h4><div class="preview-grid">${s.photos.map(p=>`<div class="preview-wrap" onclick="openLightbox('${p}')"><img src="${p}"></div>`).join('')}</div></div>`:'';
