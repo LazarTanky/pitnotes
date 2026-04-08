@@ -218,6 +218,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <div class="cf"><label>Tire Size</label><input type="text" id="lr-tire"></div>
       <div class="cf"><label>Air PSI</label><input type="text" id="lr-psi"></div>
       <div class="cf"><label>LR Spacing</label><input type="text" id="lr-spacing"></div>
+      <div class="cf"><label>LR Radius Rod</label><select id="lr-radius" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;padding:6px 8px;outline:none;-webkit-appearance:none;"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
       <div class="cf"><label>Ride Height</label><input type="text" id="lr-ride"></div>
     </div>
     <div class="corner-block"><h4>RR</h4>
@@ -230,6 +231,8 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <div class="cf"><label>Air PSI</label><input type="text" id="rr-psi"></div>
       <div class="cf"><label>Stagger</label><input type="text" id="rr-stagger"></div>
       <div class="cf"><label>RR Spacing</label><input type="text" id="rr-spacing"></div>
+      <div class="cf"><label>RR Radius Rod</label><select id="rr-radius" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;padding:6px 8px;outline:none;-webkit-appearance:none;"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div class="cf"><label>Jacob's Ladder</label><select id="rr-jacobs" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;padding:6px 8px;outline:none;-webkit-appearance:none;"><option value="">—</option><option>Top</option><option>Middle</option><option>Bottom</option></select></div>
       <div class="cf"><label>Ride Height</label><input type="text" id="rr-ride"></div>
     </div>
   </div>
@@ -633,6 +636,7 @@ function clearForm(){
   ['ns-track','ns-date','ns-driver','ns-class','ns-condition','ns-engine','ns-gear','ns-exhaust','ns-injection','ns-fp','ns-wing','ns-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   CN.forEach(cn=>{CF.forEach(f=>{const el=document.getElementById(cn+'-'+f);if(el)el.value='';});});
   ['rr-stagger','rr-spacing','lr-spacing'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['lr-radius','rr-radius','rr-jacobs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('ns-car').value='';
   pendingPhotos=[];renderPending();
 }
@@ -643,6 +647,9 @@ async function saveSession(){
   CN.forEach(cn=>{corners[cn]={};CF.forEach(f=>{corners[cn][f]=gv(cn+'-'+f);});});
   corners.rr.stagger=gv('rr-stagger');corners.rr.spacing=gv('rr-spacing');
   corners.lr.spacing=gv('lr-spacing');
+  corners.lr.radius=gv('lr-radius');
+  corners.rr.radius=gv('rr-radius');
+  corners.rr.jacobs=gv('rr-jacobs');
   const payload={
     user_id:CU.id, car_id:gv('ns-car')||null,
     track, date:gv('ns-date'), driver:gv('ns-driver'),
@@ -699,8 +706,8 @@ function openDetail(id){
   const cdet=(cn,lbl)=>{
     const c=s.corners&&s.corners[cn]||{};
     const fields=[['Block Size',c.block],['Bar Size',c.bar],['Preload',c.preload],['Shock Comp.',c.comp],['Shock Reb.',c.reb],['Tire Size',c.tire],['Air PSI',c.psi],['Ride Height',c.ride]];
-    if(cn==='lr')fields.push(['LR Spacing',c.spacing]);
-    if(cn==='rr')fields.push(['Stagger',c.stagger],['RR Spacing',c.spacing]);
+    if(cn==='lr')fields.push(['LR Spacing',c.spacing],['LR Radius Rod',c.radius]);
+    if(cn==='rr')fields.push(['Stagger',c.stagger],['RR Spacing',c.spacing],['RR Radius Rod',c.radius],["Jacob's Ladder",c.jacobs]);
     const content=rows(fields);if(!content)return'';
     return`<div class="c-detail-blk"><h5>${lbl}</h5>${content}</div>`;
   };
@@ -740,8 +747,8 @@ function editSession(){
   document.getElementById('ns-wing').value=s.wing||'';
   CN.forEach(cn=>{CF.forEach(f=>{const el=document.getElementById(cn+'-'+f);if(el&&s.corners&&s.corners[cn])el.value=s.corners[cn][f]||'';});});
   if(s.corners){
-    if(s.corners.rr){document.getElementById('rr-stagger').value=s.corners.rr.stagger||'';document.getElementById('rr-spacing').value=s.corners.rr.spacing||'';}
-    if(s.corners.lr){document.getElementById('lr-spacing').value=s.corners.lr.spacing||'';}
+    if(s.corners.rr){document.getElementById('rr-stagger').value=s.corners.rr.stagger||'';document.getElementById('rr-spacing').value=s.corners.rr.spacing||'';document.getElementById('rr-radius').value=s.corners.rr.radius||'';document.getElementById('rr-jacobs').value=s.corners.rr.jacobs||'';}
+    if(s.corners.lr){document.getElementById('lr-spacing').value=s.corners.lr.spacing||'';document.getElementById('lr-radius').value=s.corners.lr.radius||'';}
   }
   document.getElementById('re-container').innerHTML='';reCount=0;
   (s.race_events||[]).forEach(e=>addRaceEvent(e));
